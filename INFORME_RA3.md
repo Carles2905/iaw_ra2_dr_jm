@@ -12,3 +12,9 @@
 
 * **Capacidad que permite publicar entradas:** `publish_posts`
 * **Capacidad que permite subir ficheros multimedia:** `upload_files`
+
+## 3. Copias de seguridad y prueba de restauración
+
+- **Automatización:** Script `scripts/backup.sh` con comprobación de contenedores activos, volcado transaccional (`mariadb-dump`), empaquetado de `wp-content`, validación con `gzip -t` y rotación de 7 copias.
+- **Prueba de desastre controlado:** Se realizó la copia `20261117-160626` (`./scripts/backup.sh`), se eliminó de forma permanente la entrada `1` (`./wp post delete 1 --force`) y se desinstaló el plugin `flamingo` (`./wp plugin delete flamingo`). Posteriormente se ejecutó `./scripts/restore.sh 20261117-160626` confirmando con `SI`.
+- **Resultado:** Tras restaurar y recargar con `Ctrl+F5`, se recuperaron íntegramente tanto la entrada `¡Hola, mundo!` (ID 1) como el plugin `flamingo` con sus mensajes almacenados.
