@@ -1,36 +1,40 @@
 #!/usr/bin/env bash
+# =====================================================================
+# restore.sh — Restaura una copia hecha con backup.sh (RA3 · sesión 16)
+#
+# Uso:  ./scripts/restore.sh                    -> lista las copias disponibles
+#       ./scripts/restore.sh 20261104-121500    -> restaura esa copia
+# =====================================================================
 set -euo pipefail
 export MSYS_NO_PATHCONV=1
-
 cd "$(dirname "$0")/.."
-DESTINO="backups"
 
-if [ $# -eq 0 ]; then
-  echo "Copias disponibles (marca de fecha AAAAMMDD-HHMMSS):"
-  ls -1 "$DESTINO"/db_*.sql.gz 2>/dev/null | sed -E 's/.*db_([0-9-]+)\.sql\.gz/  \1/' || echo "  (Ninguna)"
-  echo "Uso: ./scripts/restore.sh AAAAMMDD-HHMMSS"
-  exit 0
-fi
-
-FECHA="$1"
-F_DB="$DESTINO/db_$FECHA.sql.gz"
-F_WP="$DESTINO/wp-content_$FECHA.tar.gz"
-
-if [ ! -f "$F_DB" ] || [ ! -f "$F_WP" ]; then
-  echo "ERROR: No existen ambos ficheros para la fecha $FECHA en $DESTINO/" >&2
+FECHA="${1:-}"
+if [ -z "$FECHA" ]; then
+  echo "Uso: $0 FECHA"
+  echo "Copias disponibles:"
+  ls -1 backups/db_*.sql.gz 2>/dev/null | sed 's#backups/db_##; s#\.sql\.gz##' || echo "  (ninguna)"
   exit 1
 fi
 
-read -r -p "ATENCIÓN: Se sobrescribirá la base de datos y wp-content con la copia $FECHA. Escribe SI para continuar: " CONF
-if [ "$CONF" != "SI" ]; then
-  echo "Restauración cancelada."
-  exit 1
-fi
+F_DB="backups/db_$FECHA.sql.gz"
+F_WP="backups/wp-content_$FECHA.tar.gz"
+for f in "$F_DB" "$F_WP"; do
+  [ -f "$f" ] || { echo "ERROR: no existe $f" >&2; exit 1; }
+done
+gzip -t "$F_DB" "$F_WP"
 
-echo "-> Restaurando base de datos..."
-gunzip -c "$F_DB" | docker compose exec -T db sh -c 'mariadb -u"$WP_DB_USER" -p"$WP_DB_PASSWORD" "$WP_DB_NAME"'
+echo "Se va a SOBRESCRIBIR la base de datos y wp-content con la copia $FECHA."
+read -r -p "Escribe SI (en mayúsculas) para continuar: " respuesta
+[ "$respuesta" = "SI" ] || { echo "Cancelado."; exit 1; }
+
+echo "-> Restaurando la base de datos..."
+gunzip -c "$F_DB" | docker compose exec -T db sh -c \
+  'exec mariadb -u"$WP_DB_USER" -p"$WP_DB_PASSWORD" "$WP_DB_NAME"'
 
 echo "-> Restaurando wp-content..."
-cat "$F_WP" | docker compose exec -T wordpress sh -c 'rm -rf /var/www/html/wp-content && tar -xzf - -C /var/www/html && chown -R www-data:www-data /var/www/html/wp-content'
+docker compose exec -T wordpress rm -rf /var/www/html/wp-content
+docker compose exec -T wordpress tar -xzf - -C /var/www/html < "$F_WP"
+docker compose exec -T wordpress chown -R www-data:www-data /var/www/html/wp-content
 
-echo "OK. Restauración de $FECHA completada."
+echo "OK. Restaurada la copia $FECHA. Recarga el sitio en el navegador."
