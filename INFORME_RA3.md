@@ -27,3 +27,22 @@
 | **CSV** | Importación masiva de usuarios o exportación de listados tabulares | Importación de usuarios desde `datos/usuarios.csv` (`./wp user import-csv`) y exportación del listado de entradas a `exportaciones/entradas.csv` |
 | **JSON** | Integración con aplicaciones externas y consultas a la API REST | Exportación de usuarios con `--format=json` y consulta directa mediante `curl` a `/wp-json/wp/v2/posts` y `/wp-json/wp/v2/users` |
 | **SQL** | Copias de seguridad completas o volcados parciales de tablas | Exportación individual de `wp_users` con `mariadb-dump`, verificando el almacenamiento cifrado de contraseñas (`$wp$2y$...`) y la exclusión de `exportaciones/` en `.gitignore` |
+
+## 5. Tema hijo y plantillas en el editor del sitio
+
+- **Tema hijo (`iaw-hijo`):** Creado mediante `./wp scaffold child-theme` heredando de `twentytwentyfive` y personalizado mediante `temas/iaw-hijo/theme.json` (fondo `#F4F7FA`, texto `#21295C` y enlaces `#065A82`).
+- **Personalización de plantillas:** Se añadieron los bloques *Autor de la entrada* y *Categorías* en `Entradas individuales`, se actualizó la parte reutilizable `Pie` y se creó la plantilla personalizada `Página informativa` (ancho amplio sin comentarios) asignada a *Horario del ciclo*.
+- **Almacenamiento:** Los cambios realizados en el editor del sitio se persisten en la base de datos como registros de tipo `wp_template` y `wp_template_part` (por lo que quedan respaldados en el volcado SQL), manteniendo intactos los ficheros base en `wp-content/themes/iaw-hijo/`.
+
+## 6. Sindicación de contenidos (RSS 2.0 y Atom 1.0)
+
+| Característica | RSS 2.0 (`/feed/`) | Atom 1.0 (`/feed/atom/`) | Ejemplo real obtenido |
+|---|---|---|---|
+| **Elemento raíz** | `<rss version="2.0"><channel>` | `<feed xmlns="http://www.w3.org/2005/Atom">` | `<rss version="2.0"` / `<feed xmlns="http://www.w3.org/2005/Atom"` |
+| **Cada entrada** | `<item>` | `<entry>` | `<item><title>Hackathon de ciberseguridad</title>...` |
+| **Formato de fecha** | `<pubDate>` (RFC 822) | `<updated>` y `<published>` (ISO 8601) | `Tue, 03 Nov 2026 15:00:00 +0000` vs `2026-11-03T15:00:00Z` |
+| **Identificador** | `<guid>` (opcional) | `<id>` (obligatorio) | `<guid isPermaLink="false">http://localhost:8080/?p=106</guid>` |
+| **Estándar** | Especificación de Harvard | RFC 4287 del IETF | Validado correctamente en W3C Feed Validation Service |
+
+- **Configuración y validación:** Se limitó el feed a 5 elementos (`posts_per_rss=5`) mostrando únicamente el extracto (`rss_use_excerpt=1`) y se validó el XML en el validador del W3C.
+- **Integración:** Se publicó el icono RSS (`/feed/`) y el enlace al canal de eventos (`/category/eventos/feed/`) en el sitio, y se creó la página *Noticias del sector* consumiendo el feed oficial de WordPress.org y el canal de mi pareja mediante su IP de red local.
