@@ -46,3 +46,23 @@
 
 - **Configuración y validación:** Se limitó el feed a 5 elementos (`posts_per_rss=5`) mostrando únicamente el extracto (`rss_use_excerpt=1`) y se validó el XML en el validador del W3C.
 - **Integración:** Se publicó el icono RSS (`/feed/`) y el enlace al canal de eventos (`/category/eventos/feed/`) en el sitio, y se creó la página *Noticias del sector* consumiendo el feed oficial de WordPress.org y el canal de mi pareja mediante su IP de red local.
+
+## 7. Actualizaciones controladas del stack
+
+| Capa / Componente | Versión antes | Versión después | Método utilizado |
+|---|---|---|---|
+| **Imagen Nginx** | `nginx:stable` | `nginx:stable` | Verificado en `docker compose images` |
+| **Imagen MariaDB** | `mariadb:11` | `mariadb:11` | Verificado en `docker compose images` |
+| **Imagen PHP / WordPress** | `7.1-php8.3-fpm` (PHP 8.3.x) | `7.1-php8.4-fpm` (PHP 8.4.x) | Cambio de etiqueta en `docker-compose.yml` + `docker compose pull` |
+| **Núcleo WordPress** | `7.1.x` | `7.1.x` (última menor) | `./wp core update --minor` + `update-db` + `verify-checksums` |
+| **Plugin Contact Form 7** | `6.0` (prueba) / `6.2.5` | Última estable | `./wp plugin update --all` |
+| **Tema hijo (`iaw-hijo`)** | `1.0` | `1.0` | Sin actualizaciones pendientes (`./wp theme list`) |
+
+- **Comportamiento del volumen al actualizar la imagen:** Al actualizar la etiqueta de Docker a `wordpress:7.1-php8.4-fpm`, el contenedor actualiza el binario y las extensiones de PHP a la versión 8.4, pero mantiene intacta la versión de WordPress en `/var/www/html` porque la imagen solo copia el núcleo si el volumen `wp_data` está vacío. Por ello, el núcleo se actualiza de forma independiente con WP-CLI y se verifica su integridad con `verify-checksums`.
+
+## 8. Informes de acceso (Nginx vs. Simple History)
+
+- **Análisis del log HTTP (`scripts/informe-accesos.sh` + GoAccess):** Mediante `awk`, `sort` y `uniq -c` sobre `logs/access.log` y el informe HTML generado con GoAccess se identificaron las peticiones totales, las IP de origen, las URL más solicitadas, los errores `404` (`/no-existe`) y los intentos de acceso al panel (`POST /wp-login.php` con código `200` en intentos fallidos frente a `302` cuando el inicio de sesión tiene éxito).
+- **Complementariedad entre registros:**
+  - **Nginx (`access.log`):** Registra la capa de red y HTTP (IP cliente, fecha/hora, método, ruta solicitada, código de estado y *User-Agent*), incluso en peticiones anónimas o rutas inexistentes.
+  - **Simple History:** Registra la capa de aplicación interna de WordPress, identificando qué cuenta de usuario concreta realizó cada acción (inicios de sesión fallidos o exitosos, actualización de plugins, edición de contenidos o cambios de configuración).
